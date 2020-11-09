@@ -1,0 +1,21 @@
+{
+  "name": "openwebx/opencache",
+  "description": "simple wrapper around phpfastcache",
+  "license": "GPL-3.0-or-later",
+  "authors": [
+    {
+      "name": "Jens Reinemuth",
+      "email": "jens@reinemuth.rocks"
+    }
+  ],
+  "autoload": {
+    "psr-4": {
+      "openWebX\\openCache\\": "src"
+    }
+  },
+  "require": {
+    "php": ">=7.4",
+    "phpfastcache/phpfastcache": "^8.0",
+    "ext-igbinary": "*"
+  }
+}

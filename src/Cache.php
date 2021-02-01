@@ -40,13 +40,18 @@ class Cache {
                 $cacheClass = ucfirst(self::$defaultDriver);
                 $cacheDriver = CacheManager::$cacheClass($configOption);
                 self::$cache = new Psr16Adapter($cacheDriver);
-            } catch (PhpfastcacheDriverCheckException $phpfastcacheDriverCheckException) {
-            } catch (PhpfastcacheLogicException $phpfastcacheLogicException) {
-            } catch (PhpfastcacheDriverNotFoundException $phpfastcacheDriverNotFoundException) {
-            } catch (PhpfastcacheDriverException $phpfastcacheDriverException) {
-            } catch (PhpfastcacheInvalidArgumentException $phpfastcacheInvalidArgumentException) {
-            } catch (PhpfastcacheInvalidConfigurationException $phpfastcacheInvalidConfigurationException) {
-            } catch (ReflectionException $reflectionException) {
+                return true;
+            } catch (
+                PhpfastcacheDriverCheckException |
+                PhpfastcacheLogicException |
+                PhpfastcacheDriverNotFoundException |
+                PhpfastcacheDriverException |
+                PhpfastcacheInvalidArgumentException |
+                PhpfastcacheInvalidConfigurationException |
+                ReflectionException $phpfastcacheException
+            ) {
+                echo $phpfastcacheException->getMessage();
+                return false;
             }
         }
         return true;
@@ -77,12 +82,11 @@ class Cache {
             self::init();
         }
         try {
-            $ret = self::$cache->clear();
+            return self::$cache->clear();
         } catch (PhpfastcacheSimpleCacheException $phpfastcacheSimpleCacheException) {
             echo $phpfastcacheSimpleCacheException->getMessage();
             return false;
         }
-        return $ret;
     }
 
     /**
@@ -91,18 +95,17 @@ class Cache {
      * @throws InvalidArgumentException
      * @throws InvalidArgumentException
      */
-    public static function get(string $key) {
+    public static function get(string $key): mixed {
         if (self::$cache === null) {
             self::init();
         }
         try {
             $key = sha1($key);
-            $ret = self::$cache->get($key) !== null ? igbinary_unserialize(self::$cache->get($key)) : null;
+            return self::$cache->get($key) !== null ? igbinary_unserialize(self::$cache->get($key)) : null;
         } catch (PhpfastcacheSimpleCacheException $phpfastcacheSimpleCacheException) {
             echo $phpfastcacheSimpleCacheException->getMessage();
             return false;
         }
-        return $ret;
     }
 
     /**
@@ -113,23 +116,20 @@ class Cache {
      * @throws Exception
      * @throws \InvalidArgumentException|InvalidArgumentException
      */
-    public static function set(string $key, $value, ?int $ttl = 3600) : bool
-    {
+    public static function set(string $key, mixed $value, ?int $ttl = 3600) : bool {
         if (self::$cache === null) {
             self::init();
         }
-
         try {
             $key = sha1($key);
             if ($ttl === null) {
-                $ret = self::$cache->set($key, igbinary_serialize($value));
+                return self::$cache->set($key, igbinary_serialize($value));
             } else {
-                $ret = self::$cache->set($key, igbinary_serialize($value), $ttl);
+                return self::$cache->set($key, igbinary_serialize($value), $ttl);
             }
         } catch (PhpfastcacheSimpleCacheException $phpfastcacheSimpleCacheException) {
             echo $phpfastcacheSimpleCacheException->getMessage();
             return false;
         }
-        return $ret;
     }
 }

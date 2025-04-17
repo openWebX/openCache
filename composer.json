@@ -14,7 +14,7 @@
     }
   },
   "require": {
-    "php": ">=8.0",
+    "php": ">=8.4",
     "phpfastcache/phpfastcache": "^8.0",
     "ext-igbinary": "*",
     "predis/predis": "^1.1"

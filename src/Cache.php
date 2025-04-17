@@ -1,135 +1,174 @@
 <?php
-
+declare(strict_types=1);
 
 namespace openWebX\openCache;
 
-use Exception;
 use Phpfastcache\CacheManager;
 use Phpfastcache\Config\ConfigurationOption;
-use Phpfastcache\Exceptions\PhpfastcacheDriverCheckException;
-use Phpfastcache\Exceptions\PhpfastcacheDriverException;
-use Phpfastcache\Exceptions\PhpfastcacheDriverNotFoundException;
-use Phpfastcache\Exceptions\PhpfastcacheInvalidArgumentException;
-use Phpfastcache\Exceptions\PhpfastcacheInvalidConfigurationException;
-use Phpfastcache\Exceptions\PhpfastcacheLogicException;
-use Phpfastcache\Exceptions\PhpfastcacheSimpleCacheException;
 use Phpfastcache\Helper\Psr16Adapter;
-use Psr\Cache\InvalidArgumentException;
+use Phpfastcache\Exceptions\{
+    PhpfastcacheDriverCheckException,
+    PhpfastcacheDriverException,
+    PhpfastcacheDriverNotFoundException,
+    PhpfastcacheInvalidArgumentException,
+    PhpfastcacheInvalidConfigurationException,
+    PhpfastcacheLogicException,
+    PhpfastcacheSimpleCacheException
+};
+use Psr\SimpleCache\InvalidArgumentException as PsSimpleCacheException;
+use RuntimeException;
 use ReflectionException;
 
-class Cache {
+final class Cache
+{
+    private static ?Psr16Adapter $cache = null;
+    private static string     $defaultDriver = 'Files';
 
-
-    /**
-     * @var Psr16Adapter|null
-     */
-    public static ?Psr16Adapter $cache = null;
-    /**
-     * @var string
-     */
-    public static string $defaultDriver = 'Files';
+    // Prevent instantiation or cloning
+    private function __construct() {}
+    private function __clone() {}
+    private function __wakeup() {}
 
     /**
-     * @return bool
+     * Initialize the PSR‑16 adapter once.
+     *
+     * @throws RuntimeException on failure
      */
-    public static function init() : bool {
-        if (self::$cache === null) {
-            try {
-                $configOption = (new ConfigurationOption())
-                    ->setAutoTmpFallback(true);
-                $cacheClass = ucfirst(self::$defaultDriver);
-                $cacheDriver = CacheManager::$cacheClass($configOption);
-                self::$cache = new Psr16Adapter($cacheDriver);
-                return true;
-            } catch (
-                PhpfastcacheDriverCheckException |
-                PhpfastcacheLogicException |
-                PhpfastcacheDriverNotFoundException |
-                PhpfastcacheDriverException |
-                PhpfastcacheInvalidArgumentException |
-                PhpfastcacheInvalidConfigurationException |
-                ReflectionException $phpfastcacheException
-            ) {
-                echo $phpfastcacheException->getMessage();
-                return false;
-            }
+    public static function init(): void
+    {
+        if (self::$cache !== null) {
+            return;
         }
-        return true;
-    }
 
-    /**
-     * @param $key
-     * @return bool
-     */
-    public static function delete($key) : bool {
-        if (self::$cache === null) {
-            self::init();
-        }
         try {
-            $ret = self::$cache->delete($key);
-        } catch (PhpfastcacheSimpleCacheException $phpfastcacheSimpleCacheException) {
-            echo $phpfastcacheSimpleCacheException->getMessage();
-            return false;
-        }
-        return $ret;
-    }
+            $config   = (new ConfigurationOption())->setAutoTmpFallback(true);
+            $driver   = ucfirst(self::$defaultDriver);
+            $instance = CacheManager::$driver(config: $config);
 
-    /**
-     * @return bool
-     */
-    public static function cleanup() : bool {
-        if (self::$cache === null) {
-            self::init();
-        }
-        try {
-            return self::$cache->clear();
-        } catch (PhpfastcacheSimpleCacheException $phpfastcacheSimpleCacheException) {
-            echo $phpfastcacheSimpleCacheException->getMessage();
-            return false;
+            self::$cache = new Psr16Adapter(driver: $instance);
+        } catch (
+        PhpfastcacheDriverCheckException |
+        PhpfastcacheLogicException |
+        PhpfastcacheDriverNotFoundException |
+        PhpfastcacheDriverException |
+        PhpfastcacheInvalidArgumentException |
+        PhpfastcacheInvalidConfigurationException |
+        ReflectionException $e
+        ) {
+            throw new RuntimeException(
+                'Failed to initialize cache: ' . $e->getMessage(),
+                previous: $e
+            );
         }
     }
 
     /**
-     * @param string $key
-     * @return mixed
-     * @throws InvalidArgumentException
-     * @throws InvalidArgumentException
+     * @return Psr16Adapter
      */
-    public static function get(string $key): mixed {
+    private static function getAdapter(): Psr16Adapter
+    {
         if (self::$cache === null) {
             self::init();
         }
+        return self::$cache;
+    }
+
+    /**
+     * Delete a key.
+     */
+    public static function delete(string $key): bool
+    {
+        $cache = self::getAdapter();
+        $hash  = sha1($key);
+
         try {
-            $key = sha1($key);
-            return self::$cache->get($key) !== null ? igbinary_unserialize(self::$cache->get($key)) : null;
-        } catch (PhpfastcacheSimpleCacheException $phpfastcacheSimpleCacheException) {
-            echo $phpfastcacheSimpleCacheException->getMessage();
+            return $cache->delete($hash);
+        } catch (PhpfastcacheSimpleCacheException $e) {
+            error_log(sprintf(
+                '[%s] delete("%s") failed: %s',
+                $e::class,
+                $key,
+                $e->getMessage()
+            ));
             return false;
         }
     }
 
     /**
-     * @param string $key
-     * @param mixed $value
-     * @param int|null $ttl
-     * @return bool
-     * @throws Exception
-     * @throws \InvalidArgumentException|InvalidArgumentException
+     * Clear all entries.
      */
-    public static function set(string $key, mixed $value, ?int $ttl = 3600) : bool {
-        if (self::$cache === null) {
-            self::init();
-        }
+    public static function clear(): bool
+    {
         try {
-            $key = sha1($key);
-            if ($ttl === null) {
-                return self::$cache->set($key, igbinary_serialize($value));
-            } else {
-                return self::$cache->set($key, igbinary_serialize($value), $ttl);
-            }
-        } catch (PhpfastcacheSimpleCacheException $phpfastcacheSimpleCacheException) {
-            echo $phpfastcacheSimpleCacheException->getMessage();
+            return self::getAdapter()->clear();
+        } catch (PhpfastcacheSimpleCacheException $e) {
+            error_log(sprintf(
+                '[%s] clear() failed: %s',
+                $e::class,
+                $e->getMessage()
+            ));
             return false;
         }
+    }
+
+    /**
+     * Fetch and unserialize a value.
+     *
+     * @return mixed|null  Returns null on miss or error.
+     */
+    public static function get(string $key): mixed
+    {
+        $cache = self::getAdapter();
+        $hash  = sha1($key);
+
+        try {
+            $raw = $cache->get($hash);
+            return $raw !== null
+                ? igbinary_unserialize($raw)
+                : null;
+        } catch (PhpfastcacheSimpleCacheException $e) {
+            error_log(sprintf(
+                '[%s] get("%s") failed: %s',
+                $e::class,
+                $key,
+                $e->getMessage()
+            ));
+            return null;
+        }
+    }
+
+    /**
+     * Serialize and store a value with an optional TTL.
+     */
+    public static function set(string $key, mixed $value, ?int $ttl = 3600): bool
+    {
+        $cache   = self::getAdapter();
+        $hash    = sha1($key);
+        $payload = igbinary_serialize($value);
+
+        try {
+            return $cache->set(
+                key:   $hash,
+                value: $payload,
+                ttl:   $ttl
+            );
+        } catch (PhpfastcacheSimpleCacheException $e) {
+            error_log(sprintf(
+                '[%s] set("%s") failed: %s',
+                $e::class,
+                $key,
+                $e->getMessage()
+            ));
+            return false;
+        }
+    }
+
+    /**
+     * Change the default driver (and reset).
+     */
+    public static function configureDriver(string $driver): void
+    {
+        self::$defaultDriver = $driver;
+        self::$cache         = null;
     }
 }

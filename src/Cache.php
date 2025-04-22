@@ -15,6 +15,7 @@ use Phpfastcache\Exceptions\{
     PhpfastcacheLogicException,
     PhpfastcacheSimpleCacheException
 };
+
 use RuntimeException;
 use ReflectionException;
 
@@ -26,7 +27,7 @@ final class Cache
     // Prevent instantiation or cloning
     private function __construct() {}
     private function __clone() {}
-    private function __wakeup() {}
+    public function __wakeup() {}
 
     /**
      * Initialize the PSR‑16 adapter once.
@@ -40,7 +41,7 @@ final class Cache
         }
 
         try {
-            $config   = (new ConfigurationOption())->setAutoTmpFallback(true);
+            $config   = new ConfigurationOption()->setAutoTmpFallback(true);
             $driver   = ucfirst(self::$defaultDriver);
             $instance = CacheManager::$driver(config: $config);
 

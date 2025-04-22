@@ -15,7 +15,6 @@ use Phpfastcache\Exceptions\{
     PhpfastcacheLogicException,
     PhpfastcacheSimpleCacheException
 };
-use Psr\SimpleCache\InvalidArgumentException as PsSimpleCacheException;
 use RuntimeException;
 use ReflectionException;
 
